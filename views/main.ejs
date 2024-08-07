@@ -8,12 +8,22 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        .img-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .img-container img {
+            max-width: 100%;
+        }
+    </style>
 </head>
 
 <body>
     <div class="container">
-        <div class="dropdown d-inline-block float-end">
-            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" id="uploadButton"
+        <div class="dropdown d-inline-block float-end" id="uploadButton">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown"
                 aria-expanded="false" data-bs-auto-close="outside">
                 <i class="bi bi-cloud-upload"></i>
             </button>
@@ -27,7 +37,7 @@
             </div>
         </div>
         <h1 class="mt-5">Image Gallery</h1>
-        <div class="row mt-4">
+        <div class="row mt-4" id="gallery">
             <% files.sort((a, b)=> new Date(parseInt(b.filename.split("-")[0])) - new Date(parseInt(a.filename.split("-")[0]))).forEach((file) => { %>
                 <div class="col-md-4">
                     <div class="card mb-4">
@@ -51,74 +61,90 @@
                             <button id="copyLink<%= file.filename %>"
                                 onclick="navigator.clipboard.writeText('http://localhost:3000/cdn/<%= file.filename %>'); document.getElementById('copyLink<%= file.filename %>').innerHTML = '<i class=\'bi bi-clipboard-check\'></i> Copy Link'; setTimeout(() => { document.getElementById('copyLink<%= file.filename %>').innerHTML = '<i class=\'bi bi-clipboard\'></i> Copy Link'; }, 1000);"
                                 class="btn btn-secondary"> <i class="bi bi-clipboard"></i> Copy Link</button>
-        
+                            <button id="editImage<%= file.filename %>" class="btn btn-warning"> <i class="bi bi-pencil"></i> Edit</button>
+
                         </div>
                     </div>
                 </div>
                 <%});%>
         </div>
+        <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalLabel">Edit Image</h5> 
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="img-container">
+                            <img id="image" src="" >
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="crop">Crop</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+ 
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         crossorigin="anonymous"></script>
+    <script src="https://fengyuanchen.github.io/cropperjs/js/cropper.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
+
+
         document.addEventListener('DOMContentLoaded', () => {
             const socket = io();
             const gallery = document.getElementById('gallery');
             const uploadForm = document.getElementById('uploadForm');
             const imageInput = document.getElementById('imageInput');
             const dropdown = new bootstrap.Dropdown(document.getElementById('uploadButton'));
+            var $modal = $('#modal');
+            var image = document.getElementById('image');
+            var cropper;
 
-            const imageEditModal = new bootstrap.Modal(document.getElementById('imageEditModal'));
-            const imageToEdit = document.getElementById('imageToEdit');
-            const saveEditButton = document.getElementById('saveEditButton');
-            let cropper;
 
-            const editImage = (imagePath) => {
-                imageToEdit.src = imagePath;
-                imageEditModal.show();
-                cropper = new Cropper(imageToEdit, {
-                    aspectRatio: 16 / 9,
-                    viewMode: 1,
+            $modal.on('shown.bs.modal', function () {
+                cropper = new Cropper(image, {
+                    aspectRatio: 1,
+                    viewMode: 3,
                 });
-            };
-
-            saveEditButton.addEventListener('click', () => {
-                const canvas = cropper.getCroppedCanvas();
-                canvas.toBlob((blob) => {
-                    const formData = new FormData();
-                    formData.append('image', blob, 'edited.jpg');
-
-                    fetch('/upload', {
-                        method: 'POST',
-                        body: formData
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            console.log('Image edited successfully:', data.imagePath);
-                            imageEditModal.hide();
-                        })
-                        .catch(error => {
-                            console.error('Error editing image:', error);
-                        });
-                });
+            }).on('hidden.bs.modal', function () {
+                cropper.destroy();
+                cropper = null;
             });
 
-            
+
             socket.on('newImage', (file) => {
                 const col = document.createElement('div');
                 col.classList.add('col-md-4');
                 col.innerHTML = `
-                    <div class="card mb-4">
-                        <img src="${file.imagePath}" class="card-img-top" alt="${file.originalName}">
-                        <div class="card-body">
-                            <h5 class="card-title">${file.originalName}</h5>
-                            <a href="${file.imagePath}" class="btn btn-success">View</a>
-                            <button class="btn btn-warning" onclick="editImage('${file.imagePath}')">Edit</button>
-                        </div>
-                    </div>`;
-                gallery.appendChild(col);
+                <div class="card mb-4">
+                    <img src="/cdn/${file.filename}" class="card-img-top" alt="${file.originalname}">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            ${file.originalname}
+                            <span class="badge bg-secondary float-end" title="size"> <i class="bi bi-file-earmark-text"></i>
+                                ${(file.size / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                        </h5>
+                        <p class="card-text">
+                            <small class="text-muted">Uploaded on ${new Date(parseInt(file.filename.split("-")[0])).toLocaleString()}</small>
+                        </p>
+                        <a href="/download/${file.filename}" class="btn btn-primary"> <i class="bi bi-cloud-download"></i> Download</a>
+                        <a href="/cdn/${file.filename}" class="btn btn-success"> <i class="bi bi-link-45deg"></i> View</a>
+                        <button id="copyLink${file.filename}" onclick="navigator.clipboard.writeText('http://localhost:3000/cdn/${file.filename}'); document.getElementById('copyLink${file.filename}').innerHTML = '<i class=\'bi bi-clipboard-check\'></i> Copy Link'; setTimeout(() => { document.getElementById('copyLink${file.filename}').innerHTML = '<i class=\'bi bi-clipboard\'></i> Copy Link'; }, 1000);" class="btn btn-secondary"> <i class="bi bi-clipboard"></i> Copy Link</button>
+                        <button id="editImage${file.filename}" class="btn btn-warning"> <i class="bi bi-pencil"></i> Edit</button>
+                    </div>
+                </div>
+                `;
+                            
+                gallery.insertBefore(col, gallery.firstChild);
             });
 
             uploadForm.addEventListener('submit', (e) => {
@@ -132,16 +158,28 @@
                 })
                     .then(response => response.json())
                     .then(data => {
-                        console.log('Image uploaded successfully:', data.imagePath);
-                        dropdown.hide();
+                        if (data.success) {
+                            console.log('Image uploaded successfully')
+                            dropdown.hide();
+                        }
                     })
                     .catch(error => {
                         console.error('Error uploading image:', error);
-                        
+
                     });
 
                 uploadForm.reset();
             });
+
+            gallery.addEventListener('click', (e) => {
+                if (e.target.id.startsWith('editImage')) {
+                    const filename = e.target.id.replace('editImage', '');
+                    image.src = `/cdn/${filename}`;
+
+                    $modal.modal('show');
+                }
+            });
+
         });
 
     </script>
