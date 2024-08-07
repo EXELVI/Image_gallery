@@ -95,19 +95,20 @@ app.get('/', (req, res) => {
     } else {
         var data = db.get();
         for (var key in data) {
+            data[key].files.map(f => f.owner = key);
             files.push(...data[key].files);
         }
     }
 
 
-    res.render("main", { files: files, sorted: (a,b) => new Date(parseInt(b.filename.split("-")[0])) - new Date(parseInt(a.filename.split("-")[0])) });
+    res.render("main", { files: files, sorted: (a,b) => new Date(parseInt(b.filename.split("-")[0])) - new Date(parseInt(a.filename.split("-")[0])), user: req.user });
 
 });
 
 app.post('/upload', upload.single('image'), (req, res) => {
     if (!req.isAuthenticated()) return res.redirect('/auth/discord');
     if (!req.file) {
-        return res.status(400).send('No file uploaded.');
+        return res.status(400).json({ success: false, error: 'No file uploaded.' });
     }
     if (db.getKey(req.user.id) === undefined) {
         db.setKey(req.user.id, { files: [] });
@@ -123,25 +124,31 @@ app.post('/upload', upload.single('image'), (req, res) => {
 app.post('/edit', upload.single('croppedImage'), (req, res) => {
     if (!req.isAuthenticated()) return res.redirect('/auth/discord');
     if (!req.file) {
-        return res.status(400).send('No file uploaded.');
+        return res.status(400).json({ success: false, error: 'No file uploaded.' });
+    }
+
+    const user = db.getKey(req.user.id);
+    if (!user.files.find(f => f.filename === req.body.filename)) {
+        return res.status(403).json({ success: false, error: 'You do not have permission to edit this file.' });
     }
 
     const { filename } = req.body;
     const oldFile = db.getKey(req.user.id).files.find(f => f.filename === filename);
     if (!oldFile) {
-        return res.status(404).send('Original file not found.');
+        return res.status(404).json({ success: false, error: 'File not found.' });
     }
 
     const oldFilePath = path.join(__dirname, 'uploads', oldFile.filename);
     fs.unlink(oldFilePath, (err) => {
         if (err) {
             console.error('Error deleting old file:', err);
-            return res.status(500).send('Error deleting old file.');
+            return res.status(500).json({ success: false, error: 'Error deleting old file.' });
         }
         console.log(req.file)
         const newFile = {
             ...req.file,
-            oldFilename: filename
+            oldFilename: filename,
+            owner: req.user.id
         };
 
         const userData = db.getKey(req.user.id);
@@ -159,14 +166,14 @@ app.delete('/delete/:file', (req, res) => {
     const userData = db.getKey(req.user.id);
     const fileIndex = userData.files.findIndex(f => f.filename === file);
     if (fileIndex === -1) {
-        return res.status(404).send('File not found.');
+        return res.status(404).json({ success: false, error: 'File not found.' });
     }
 
     const filePath = path.join(__dirname, 'uploads', file);
     fs.unlink(filePath, (err) => {
         if (err) {
             console.error('Error deleting file:', err);
-            return res.status(500).send('Error deleting file.');
+            return res.status(500).json({ success: false, error: 'Error deleting file.' });
         }
 
         userData.files.splice(fileIndex, 1);
