@@ -110,6 +110,11 @@ app.post('/upload', upload.single('image'), (req, res) => {
     io.emit('newImage', req.file);
 });
 
+app.post("/edit", (req, res) => {
+    if (!req.isAuthenticated()) return res.redirect('/auth/discord');
+ console.log(req.body);
+});
+
 app.get('/download/:file', (req, res) => {
     if (!req.isAuthenticated()) return res.redirect('/auth/discord');
     var file = db.getKey(req.user.id).files.find(f => f.filename === req.params.file);
