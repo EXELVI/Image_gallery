@@ -1,10 +1,12 @@
 <!doctype html>
 <html lang="en" data-bs-theme="dark">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Image Gallery</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://fengyuanchen.github.io/cropperjs/css/cropper.css">
     <style>
@@ -18,10 +20,12 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="dropdown d-inline-block float-end" id="uploadButton">
-            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown"
+                aria-expanded="false" data-bs-auto-close="outside">
                 <i class="bi bi-cloud-upload"></i>
             </button>
             <div class="dropdown-menu">
@@ -58,7 +62,8 @@
                             <button id="copyLink<%= file.filename %>"
                                 onclick="navigator.clipboard.writeText('http://localhost:3000/cdn/<%= file.filename %>'); document.getElementById('copyLink<%= file.filename %>').innerHTML = '<i class=\'bi bi-clipboard-check\'></i> Copy Link'; setTimeout(() => { document.getElementById('copyLink<%= file.filename %>').innerHTML = '<i class=\'bi bi-clipboard\'></i> Copy Link'; }, 1000);"
                                 class="btn btn-secondary"> <i class="bi bi-clipboard"></i> Copy Link</button>
-                            <button id="editImage<%= file.filename %>" class="btn btn-warning"> <i class="bi bi-pencil"></i> Edit</button>
+                            <button id="editImage<%= file.filename %>" class="btn btn-warning"> <i
+                                    class="bi bi-pencil"></i> Edit</button>
 
                         </div>
                     </div>
@@ -77,11 +82,10 @@
                         <div class="img-container">
                             <img id="image" src="">
                         </div>
-                        <!-- Progress bar -->
                         <div class="progress">
-                            <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0"
-                                aria-valuemax="100"></div>
-                                </div>  
+                            <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0"
+                                aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -92,8 +96,11 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
     <script src="https://fengyuanchen.github.io/cropperjs/js/cropper.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -107,7 +114,7 @@
             var $modal = $('#modal');
             var image = document.getElementById('image');
             var cropper;
-
+    
             $modal.on('shown.bs.modal', function () {
                 cropper = new Cropper(image, {
                     aspectRatio: 1,
@@ -121,7 +128,7 @@
                 $('.progress-bar').width('0%').attr('aria-valuenow', 0);
                 $('.progress-bar').removeClass('bg-success bg-danger');
             });
-
+    
             socket.on('newImage', (file) => {
                 const col = document.createElement('div');
                 col.classList.add('col-md-4');
@@ -149,10 +156,15 @@
                 gallery.insertBefore(col, gallery.firstChild);
             });
 
+            socket.on('editImage', (file) => {
+                const img = document.querySelector(`img[src="/cdn/${file.filename}"]`);
+                img.src = `/cdn/${file.filename}?${new Date().getTime()}`;
+            });
+    
             uploadForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const formData = new FormData(uploadForm);
-
+    
                 fetch('/upload', {
                     method: 'POST',
                     body: formData
@@ -167,10 +179,10 @@
                 .catch(error => {
                     console.error('Error uploading image:', error);
                 });
-
+    
                 uploadForm.reset();
             });
-
+    
             gallery.addEventListener('click', (e) => {
                 if (e.target.id.startsWith('editImage')) {
                     const filename = e.target.id.replace('editImage', '');
@@ -179,47 +191,42 @@
                     $modal.modal('show');
                 }
             });
-
+    
             cropButton.addEventListener('click', () => {
                 const canvas = cropper.getCroppedCanvas();
                 canvas.toBlob((blob) => {
-                    const imageName = document.getElementById('imageName').textContent;
-              
-                   $.ajax({
-                        url: '/edit',
-                        method: 'POST',
-                        data: {
-                            imageName: imageName,
-                            image: blob
-                        },
-                        processData: false,
-                        contentType: false,
-                        xhr: function () {
-                            const xhr = new XMLHttpRequest();
-                            xhr.upload.onprogress = function (e) {
-                                const percent = e.lengthComputable ? (e.loaded / e.total) * 100 : 0;
-                                $('.progress-bar').width(percent.toFixed(2) + '%').attr('aria-valuenow', percent.toFixed(2));
-                            };
-                            return xhr;
-                        },
-                        success: function (data) {
-                            if (data.success) {
-                                console.log('Image edited successfully');
-                                $modal.modal('hide');
-                            }
-                            $('.progress-bar').addClass('bg-success');
-                            $modal.modal('hide');
-                        },
-                        error: function (error) {
-                            console.error('Error editing image:', error);
-                            $('.progress-bar').addClass('bg-danger');
-                        }
-                    });
-
-                    
+                    const formData = new FormData();
+                    formData.append('croppedImage', blob, 'cropped.jpg');
+                    formData.append('filename', document.getElementById('imageName').textContent);
+    
+                 $.ajax('/edit', {
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    xhr: function () {
+                        const xhr = new XMLHttpRequest();
+                        xhr.upload.onprogress = function (e) {
+                            const percent = e.lengthComputable ? (e.loaded / e.total) * 100 : 0;
+                            $('.progress-bar').width(percent + '%').attr('aria-valuenow', percent);
+                        };
+                        return xhr;
+                    },
+                    success() {
+                        $('.progress-bar').addClass('bg-success');
+                        console.log('Image cropped successfully');
+                        $modal.modal('hide');
+                    },
+                    error() {
+                        $('.progress-bar').addClass('bg-danger');
+                        console.error('Error cropping image');
+                    },
+                });
                 });
             });
         });
     </script>
+    
 </body>
+
 </html>

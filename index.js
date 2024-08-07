@@ -64,12 +64,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 app.use('/cdn', express.static(path.join(__dirname, 'uploads')));
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(bodyParser.raw());
 app.use(express.static("public"));
 app.set("view engine", "ejs");
-
+app.use(bodyParser.json({limit: '50mb'}));
+app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 app.use(session({
     secret: 'super-super-secret:)',
     resave: false,
@@ -110,17 +108,47 @@ app.post('/upload', upload.single('image'), (req, res) => {
     io.emit('newImage', req.file);
 });
 
-app.post("/edit", (req, res) => {
+
+app.post('/edit', upload.single('croppedImage'), (req, res) => {
     if (!req.isAuthenticated()) return res.redirect('/auth/discord');
- console.log(req.body);
+    if (!req.file) {
+        return res.status(400).send('No file uploaded.');
+    }
+
+    const { filename } = req.body;
+    const oldFile = db.getKey(req.user.id).files.find(f => f.filename === filename);
+    if (!oldFile) {
+        return res.status(404).send('Original file not found.');
+    }
+
+    const oldFilePath = path.join(__dirname, 'uploads', oldFile.filename);
+    fs.unlink(oldFilePath, (err) => {
+        if (err) {
+            console.error('Error deleting old file:', err);
+            return res.status(500).send('Error deleting old file.');
+        }
+
+        const newFile = {
+            ...req.file,
+            originalname: oldFile.originalname, 
+        };
+        const userData = db.getKey(req.user.id);
+        userData.files = userData.files.map(f => (f.filename === filename ? newFile : f));
+        db.setKey(req.user.id, userData);
+
+        res.json({ success: true });
+        io.emit('editImage', newFile);
+    });
 });
+
+
 
 app.get('/download/:file', (req, res) => {
     if (!req.isAuthenticated()) return res.redirect('/auth/discord');
     var file = db.getKey(req.user.id).files.find(f => f.filename === req.params.file);
     if (!file) return res.status(404).render("error", { error: "Not Found", code: "404", errormessage: "The requested file was not found on this server.", textcolor: "primary", color: "#007bff" });
     res.download(`uploads/${file.filename}`);
-}); 
+});
 
 app.use((err, req, res, next) => {
     console.error(err.stack);
