@@ -45,17 +45,14 @@
                         <img src="/cdn/<%= file.filename %>" class="card-img-top" alt="<%= file.originalname %>">
                         <div class="card-body">
                             <h5 class="card-title">
-                                <span id="originalNam">
-                                    <%= file.originalname %>
-                                </span>
-                                <span class="badge bg-secondary float-end" title="size"> <i
-                                        class="bi bi-file-earmark-text"></i>
-                                    <%= (file.size / 1024 / 1024).toFixed(2) %> MB
-                                </span>
+                                <%- "<span id=\"originalNam\">" + file.originalname + "</span>" %>
+                              <span class="badge bg-secondary float-end" title="size"> <i
+                                      class="bi bi-file-earmark-text"></i>
+                                  <%= (file.size / 1024 / 1024).toFixed(2) %> MB
+                              </span>
                             </h5>
                             <p class="card-text">
-                                <small class="text-muted">Uploaded on <%= new
-                                        Date(parseInt(file.filename.split("-")[0])).toLocaleString() %></small>
+                                <small class="text-muted">Uploaded on <%= new Date(parseInt(file.filename.split("-")[0])).toLocaleString() %></small>
                             </p>
                             <a href="/download/<%= file.filename %>" class="btn btn-primary my-1">
                                 <i class="bi bi-cloud-download"></i> Download</a>
@@ -65,8 +62,7 @@
                                 onclick="navigator.clipboard.writeText('http://localhost:3000/cdn/<%= file.filename %>'); document.getElementById('copyLink<%= file.filename %>').innerHTML = '<i class=\'bi bi-clipboard-check\'></i> Copy Link'; setTimeout(() => { document.getElementById('copyLink<%= file.filename %>').innerHTML = '<i class=\'bi bi-clipboard\'></i> Copy Link'; }, 1000);"
                                 class="btn btn-secondary my-1"> <i class="bi bi-clipboard"></i> Copy Link</button>
                             <% if (file.owner==user.id) { %>
-                                <button id="editImage<%= file.filename %>" class="btn btn-warning my-1"> <i
-                                        class="bi bi-pencil"></i> Edit</button>
+                                <button id="editImage<%= file.filename %>" class="btn btn-warning my-1"> <i class="bi bi-pencil"></i> Edit</button>
                                 <% } %>
                         </div>
                     </div>
@@ -74,7 +70,7 @@
                 <%});%>
         </div>
         <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
-            <div class="modal-dialog" role="document">
+            <div class="modal-dialog modal-lg" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="modalLabel">Edit Image</h5>
@@ -151,6 +147,9 @@
                                             data-option="16/10">16:10
                                         </button></li>
                                     <li><button type="button" class="dropdown-item" data-method="crop"
+                                            data-option="64/27">64:27
+                                        </button></li>
+                                    <li><button type="button" class="dropdown-item" data-method="crop"
                                             data-option="2/3">2:3
                                         </button></li>
                                     <li><button type="button" class="dropdown-item" data-method="crop"
@@ -190,7 +189,7 @@
     <script src="https://fengyuanchen.github.io/cropperjs/js/cropper.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
-         const userId = '<%= user.id %>';
+        const userId = '<%= user.id %>';
         document.addEventListener('DOMContentLoaded', () => {
             const socket = io();
             const gallery = document.getElementById('gallery');
@@ -202,7 +201,7 @@
             var image = document.getElementById('image');
             var cropper;
 
-           
+
 
             $modal.on('shown.bs.modal', function () {
                 cropper = new Cropper(image, {
@@ -267,6 +266,7 @@
             socket.on('newImage', (file) => {
                 const col = document.createElement('div');
                 col.classList.add('col-md-4');
+
                 col.innerHTML = `
                 <div class="card mb-4" id="image${file.filename}">
                     <img src="/cdn/${file.filename}" class="card-img-top" alt="${file.originalname}">
@@ -282,7 +282,7 @@
                         </p>
                         <a href="/download/${file.filename}" class="btn btn-primary my-1"> <i class="bi bi-cloud-download"></i> Download</a>
                         <a href="/cdn/${file.filename}" class="btn btn-success my-1"> <i class="bi bi-link-45deg"></i> View</a>
-                        <button id="copyLink${file.filename}" onclick="navigator.clipboard.writeText('http://localhost:3000/cdn/${file.filename}'); document.getElementById('copyLink${file.filename}').innerHTML = '<i class=\'bi bi-clipboard-check\'></i> Copy Link'; setTimeout(() => { document.getElementById('copyLink${file.filename}').innerHTML = '<i class=\'bi bi-clipboard\'></i> Copy Link'; }, 1000);" class="btn btn-secondary my-1"> <i class="bi bi-clipboard"></i> Copy Link</button>
+                        <button id="copyLink${file.filename}" onclick="navigator.clipboard.writeText('http://localhost:3000/cdn/${file.filename}'); document.getElementById('copyLink${file.filename}').innerHTML = '<i class=\\'bi bi-clipboard-check\\'></i> Copy Link'; setTimeout(() => { document.getElementById('copyLink${file.filename}').innerHTML = '<i class=\\'bi bi-clipboard\\'></i> Copy Link'; }, 1000);" class="btn btn-secondary my-1"> <i class="bi bi-clipboard"></i> Copy Link</button>
                         ${file.owner == userId ? `<button id="editImage${file.filename}" class="btn btn-warning my-1"> <i class="bi bi-pencil"></i> Edit</button>` : ''}
                     </div>
                 </div>

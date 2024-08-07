@@ -100,7 +100,6 @@ app.get('/', (req, res) => {
         }
     }
 
-
     res.render("main", { files: files, sorted: (a,b) => new Date(parseInt(b.filename.split("-")[0])) - new Date(parseInt(a.filename.split("-")[0])), user: req.user });
 
 });
@@ -117,6 +116,7 @@ app.post('/upload', upload.single('image'), (req, res) => {
     data.files.push(req.file);
     db.setKey(req.user.id, data);
     res.json({ success: true });
+    req.file.owner = req.user.id;
     io.emit('newImage', req.file);
 });
 
@@ -156,6 +156,7 @@ app.post('/edit', upload.single('croppedImage'), (req, res) => {
         db.setKey(req.user.id, userData);
 
         res.json({ success: true });
+        console.log(newFile)
         io.emit('editImage', newFile);
     });
 });
