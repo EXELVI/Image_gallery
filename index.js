@@ -138,11 +138,12 @@ app.post('/edit', upload.single('croppedImage'), (req, res) => {
             console.error('Error deleting old file:', err);
             return res.status(500).send('Error deleting old file.');
         }
-
+        console.log(req.file)
         const newFile = {
             ...req.file,
             oldFilename: filename
         };
+
         const userData = db.getKey(req.user.id);
         userData.files = userData.files.map(f => (f.filename === filename ? newFile : f));
         db.setKey(req.user.id, userData);
