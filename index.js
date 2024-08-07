@@ -66,7 +66,7 @@ const upload = multer({ storage: storage });
 app.use('/cdn', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static("public"));
 app.set("view engine", "ejs");
-app.use(bodyParser.json({limit: '50mb'}));
+app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 app.use(session({
     secret: 'super-super-secret:)',
@@ -88,8 +88,19 @@ app.get('/auth/discord/callback',
 
 app.get('/', (req, res) => {
     if (!req.isAuthenticated()) return res.render("index");
-    var dbData = db.getKey(req.user.id);
-    res.render("main", { files: dbData ? dbData.files : [] });
+    var files = []
+    var filter = req.query.filter;
+    if (filter) {
+        files = db.getKey(req.user.id).files;
+    } else {
+        var data = db.get();
+        for (var key in data) {
+            files.push(...data[key].files);
+        }
+    }
+
+
+    res.render("main", { files: files, sorted: (a,b) => new Date(parseInt(b.filename.split("-")[0])) - new Date(parseInt(a.filename.split("-")[0])) });
 
 });
 
@@ -130,7 +141,7 @@ app.post('/edit', upload.single('croppedImage'), (req, res) => {
 
         const newFile = {
             ...req.file,
-            originalname: oldFile.originalname, 
+            oldFilename: filename
         };
         const userData = db.getKey(req.user.id);
         userData.files = userData.files.map(f => (f.filename === filename ? newFile : f));
@@ -141,6 +152,28 @@ app.post('/edit', upload.single('croppedImage'), (req, res) => {
     });
 });
 
+app.delete('/delete/:file', (req, res) => {
+    if (!req.isAuthenticated()) return res.redirect('/auth/discord');
+    const { file } = req.params;
+    const userData = db.getKey(req.user.id);
+    const fileIndex = userData.files.findIndex(f => f.filename === file);
+    if (fileIndex === -1) {
+        return res.status(404).send('File not found.');
+    }
+
+    const filePath = path.join(__dirname, 'uploads', file);
+    fs.unlink(filePath, (err) => {
+        if (err) {
+            console.error('Error deleting file:', err);
+            return res.status(500).send('Error deleting file.');
+        }
+
+        userData.files.splice(fileIndex, 1);
+        db.setKey(req.user.id, userData);
+        res.json({ success: true });
+        io.emit('deleteImage', file);
+    });
+});
 
 
 app.get('/download/:file', (req, res) => {

@@ -39,8 +39,8 @@
         </div>
         <h1 class="mt-5">Image Gallery</h1>
         <div class="row mt-4" id="gallery">
-            <% files.sort((a, b)=> new Date(parseInt(b.filename.split("-")[0])) - new Date(parseInt(a.filename.split("-")[0]))).forEach((file) => { %>
-                <div class="col-md-4">
+            <% files.sort(sorted).forEach((file)=> { %>
+                <div class="col-md-4" id="image<%= file.filename %>">
                     <div class="card mb-4">
                         <img src="/cdn/<%= file.filename %>" class="card-img-top" alt="<%= file.originalname %>">
                         <div class="card-body">
@@ -78,7 +78,42 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <h5 id="imageName"></h5>
+                        <div class="justify-content-center d-flex">
+                            <h5 id="imageName"></h5>
+                            <button id="deleteImage" class="btn btn-danger"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div id="toolbar">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-secondary" data-method="zoom" data-option="0.1"
+                                    title="Zoom In">
+                                    <span class="bi bi-zoom-in"></span>
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-method="zoom" data-option="-0.1"
+                                    title="Zoom Out">
+                                    <span class="bi bi-zoom-out"></span>
+                                </button>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-secondary" data-method="rotate" data-option="-45"
+                                    title="Rotate Left">
+                                    <span class="bi bi-arrow-counterclockwise"></span>
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-method="rotate" data-option="45"
+                                    title="Rotate Right">
+                                    <span class="bi bi-arrow-clockwise"></span>
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-method="scaleX" data-option="-1"
+                                    title="Flip Horizontal">
+                                    <span class="bi bi-symmetry-vertical"></span>
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-method="scaleY" data-option="-1"
+                                    title="Flip Vertical">
+                                    <span class="bi bi-symmetry-horizontal"></span>
+                                </button>
+
+
+                            </div>
+                        </div>
                         <div class="img-container">
                             <img id="image" src="">
                         </div>
@@ -114,12 +149,15 @@
             var $modal = $('#modal');
             var image = document.getElementById('image');
             var cropper;
-    
+
             $modal.on('shown.bs.modal', function () {
                 cropper = new Cropper(image, {
-                    aspectRatio: 1,
+
                     viewMode: 3,
+
                 });
+
+
             }).on('hidden.bs.modal', function () {
                 if (cropper) {
                     cropper.destroy();
@@ -128,12 +166,29 @@
                 $('.progress-bar').width('0%').attr('aria-valuenow', 0);
                 $('.progress-bar').removeClass('bg-success bg-danger');
             });
-    
+
+            document.getElementById('toolbar').addEventListener('click', (e) => {
+                e.preventDefault();
+
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') {
+                    const method = e.target.tagName != 'SPAN' ? e.target.dataset.method : e.target.parentElement.dataset.method;
+                    const option = e.target.tagName != 'SPAN' ? e.target.dataset.option : e.target.parentElement.dataset.option;
+
+                    if (method && option) {
+                        cropper[method](option);
+                    }
+                    
+                    if (method == "scaleX" || method == "scaleY") {
+                        e.target.tagName != 'SPAN' ? e.target.dataset.option = option == "-1" ? "1" : "-1" : e.target.parentElement.dataset.option = option == "-1" ? "1" : "-1";
+                    }
+                }
+            });
+
             socket.on('newImage', (file) => {
                 const col = document.createElement('div');
                 col.classList.add('col-md-4');
                 col.innerHTML = `
-                <div class="card mb-4">
+                <div class="card mb-4" id="image${file.filename}">
                     <img src="/cdn/${file.filename}" class="card-img-top" alt="${file.originalname}">
                     <div class="card-body">
                         <h5 class="card-title">
@@ -152,37 +207,49 @@
                     </div>
                 </div>
                 `;
-                            
+
                 gallery.insertBefore(col, gallery.firstChild);
             });
 
             socket.on('editImage', (file) => {
-                const img = document.querySelector(`img[src="/cdn/${file.filename}"]`);
-                img.src = `/cdn/${file.filename}?${new Date().getTime()}`;
+                const card = document.getElementById(`image${file.oldFilename}`);
+                console.log(file, card)
+                card.querySelector('img').src = `/cdn/${file.filename}`;
+                card.querySelector('.card-title').textContent = file.originalname;
+                card.querySelector('.card-text small').textContent = `Uploaded on ${new Date(parseInt(file.filename.split("-")[0])).toLocaleString()}`;
+                card.querySelector('.badge').textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+                card.querySelector('.btn-primary').href = `/download/${file.filename}`;
+                card.querySelector('.btn-success').href = `/cdn/${file.filename}`;
+                card.querySelector('.btn-secondary').setAttribute('onclick', `navigator.clipboard.writeText('http://localhost:3000/cdn/${file.filename}'); document.getElementById('copyLink${file.filename}').innerHTML = '<i class=\'bi bi-clipboard-check\'></i> Copy Link'; setTimeout(() => { document.getElementById('copyLink${file.filename}').innerHTML = '<i class=\'bi bi-clipboard\'></i> Copy Link'; }, 1000);`);
+                card.querySelector('.btn-warning').id = `editImage${file.filename}`;
             });
-    
+
+            socket.on('deleteImage', (filename) => {
+                document.getElementById(`image${filename}`).remove();
+            });
+
             uploadForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const formData = new FormData(uploadForm);
-    
+
                 fetch('/upload', {
                     method: 'POST',
                     body: formData
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        console.log('Image uploaded successfully');
-                        dropdown.hide();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error uploading image:', error);
-                });
-    
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            console.log('Image uploaded successfully');
+                            dropdown.hide();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error uploading image:', error);
+                    });
+
                 uploadForm.reset();
             });
-    
+
             gallery.addEventListener('click', (e) => {
                 if (e.target.id.startsWith('editImage')) {
                     const filename = e.target.id.replace('editImage', '');
@@ -191,42 +258,59 @@
                     $modal.modal('show');
                 }
             });
-    
+
             cropButton.addEventListener('click', () => {
                 const canvas = cropper.getCroppedCanvas();
                 canvas.toBlob((blob) => {
                     const formData = new FormData();
-                    formData.append('croppedImage', blob, 'cropped.jpg');
+                    formData.append('croppedImage', blob, document.getElementById('imageName').textContent);
                     formData.append('filename', document.getElementById('imageName').textContent);
-    
-                 $.ajax('/edit', {
-                    method: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    xhr: function () {
-                        const xhr = new XMLHttpRequest();
-                        xhr.upload.onprogress = function (e) {
-                            const percent = e.lengthComputable ? (e.loaded / e.total) * 100 : 0;
-                            $('.progress-bar').width(percent + '%').attr('aria-valuenow', percent);
-                        };
-                        return xhr;
-                    },
-                    success() {
-                        $('.progress-bar').addClass('bg-success');
-                        console.log('Image cropped successfully');
-                        $modal.modal('hide');
-                    },
-                    error() {
-                        $('.progress-bar').addClass('bg-danger');
-                        console.error('Error cropping image');
-                    },
-                });
+
+                    $.ajax('/edit', {
+                        method: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        xhr: function () {
+                            const xhr = new XMLHttpRequest();
+                            xhr.upload.onprogress = function (e) {
+                                const percent = e.lengthComputable ? (e.loaded / e.total) * 100 : 0;
+                                $('.progress-bar').width(percent + '%').attr('aria-valuenow', percent);
+                            };
+                            return xhr;
+                        },
+                        success() {
+                            $('.progress-bar').addClass('bg-success');
+                            console.log('Image cropped successfully');
+                            $modal.modal('hide');
+                        },
+                        error() {
+                            $('.progress-bar').addClass('bg-danger');
+                            console.error('Error cropping image');
+                        },
+                    });
                 });
             });
+
+            document.getElementById('deleteImage').addEventListener('click', () => {
+                const filename = document.getElementById('imageName').textContent;
+                $.ajax(`/delete/${filename}`, {
+                    method: 'DELETE',
+                    success() {
+                        console.log('Image deleted successfully');
+                        $modal.modal('hide');
+                        document.getElementById(`image${filename}`).remove();
+                    },
+                    error() {
+                        console.error('Error deleting image');
+                    },
+                });
+            });
+
+
         });
     </script>
-    
+
 </body>
 
 </html>
