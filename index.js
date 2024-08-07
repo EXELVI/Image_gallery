@@ -106,7 +106,8 @@ app.post('/upload', upload.single('image'), (req, res) => {
     var data = db.getKey(req.user.id);
     data.files.push(req.file);
     db.setKey(req.user.id, data);
-    res.render("upload", { fileUrl: `/cdn/${req.file.filename}` });
+    res.json({ success: true });
+    io.emit('newImage', req.file);
 });
 
 app.get('/download/:file', (req, res) => {

@@ -1,62 +1,150 @@
 <!doctype html>
 <html lang="en" data-bs-theme="dark">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Image Gallery</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
+
 <body>
     <div class="container">
-        <h1 class="mt-5">Image Gallery</h1>
-        <div class="row" id="gallery">
-            
-        </div>
-        <form id="uploadForm" class="mt-3">
-            <div class="mb-3">
-                <label for="imageInput" class="form-label">Upload Image</label>
-                <input class="form-control" type="file" id="imageInput" accept="image/*" required>
+        <div class="dropdown d-inline-block float-end">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" id="uploadButton"
+                aria-expanded="false" data-bs-auto-close="outside">
+                <i class="bi bi-cloud-upload"></i>
+            </button>
+            <div class="dropdown-menu">
+                <form class="px-3 py-2" id="uploadForm">
+                    <div class="mb-3">
+                        <input type="file" class="form-control" id="imageInput" name="image" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </form>
             </div>
-            <button type="submit" class="btn btn-primary">Upload</button>
-        </form>
+        </div>
+        <h1 class="mt-5">Image Gallery</h1>
+        <div class="row mt-4">
+            <% files.sort((a, b)=> new Date(parseInt(b.filename.split("-")[0])) - new Date(parseInt(a.filename.split("-")[0]))).forEach((file) => { %>
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <img src="/cdn/<%= file.filename %>" class="card-img-top" alt="<%= file.originalname %>">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <%= file.originalname %>
+                                    <span class="badge bg-secondary float-end" title="size"> <i
+                                            class="bi bi-file-earmark-text"></i>
+                                        <%= (file.size / 1024 / 1024).toFixed(2); %> MB
+                                    </span>
+                            </h5>
+                            <p class="card-text">
+                                <small class="text-muted">Uploaded on <%= new
+                                        Date(parseInt(file.filename.split("-")[0])).toLocaleString() %></small>
+                            </p>
+                            <a href="/download/<%= file.filename %>" class="btn btn-primary">
+                                <i class="bi bi-cloud-download"></i> Download</a>
+                            <a href="/cdn/<%= file.filename %>" class="btn btn-success"> <i
+                                    class="bi bi-link-45deg"></i> View</a>
+                            <button id="copyLink<%= file.filename %>"
+                                onclick="navigator.clipboard.writeText('http://localhost:3000/cdn/<%= file.filename %>'); document.getElementById('copyLink<%= file.filename %>').innerHTML = '<i class=\'bi bi-clipboard-check\'></i> Copy Link'; setTimeout(() => { document.getElementById('copyLink<%= file.filename %>').innerHTML = '<i class=\'bi bi-clipboard\'></i> Copy Link'; }, 1000);"
+                                class="btn btn-secondary"> <i class="bi bi-clipboard"></i> Copy Link</button>
+        
+                        </div>
+                    </div>
+                </div>
+                <%});%>
+        </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-    const socket = io();
-    const gallery = document.getElementById('gallery');
-    const uploadForm = document.getElementById('uploadForm');
-    const imageInput = document.getElementById('imageInput');
+            const socket = io();
+            const gallery = document.getElementById('gallery');
+            const uploadForm = document.getElementById('uploadForm');
+            const imageInput = document.getElementById('imageInput');
+            const dropdown = new bootstrap.Dropdown(document.getElementById('uploadButton'));
 
-    socket.on('newImage', (imagePath) => {
-        const img = document.createElement('img');
-        img.src = imagePath;
-        img.classList.add('img-thumbnail', 'col-md-3', 'mb-3');
-        gallery.appendChild(img);
-    });
+            const imageEditModal = new bootstrap.Modal(document.getElementById('imageEditModal'));
+            const imageToEdit = document.getElementById('imageToEdit');
+            const saveEditButton = document.getElementById('saveEditButton');
+            let cropper;
 
-    uploadForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const formData = new FormData();
-        formData.append('image', imageInput.files[0]);
+            const editImage = (imagePath) => {
+                imageToEdit.src = imagePath;
+                imageEditModal.show();
+                cropper = new Cropper(imageToEdit, {
+                    aspectRatio: 16 / 9,
+                    viewMode: 1,
+                });
+            };
 
-        fetch('/upload', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Image uploaded successfully:', data.imagePath);
-        })
-        .catch(error => {
-            console.error('Error uploading image:', error);
+            saveEditButton.addEventListener('click', () => {
+                const canvas = cropper.getCroppedCanvas();
+                canvas.toBlob((blob) => {
+                    const formData = new FormData();
+                    formData.append('image', blob, 'edited.jpg');
+
+                    fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Image edited successfully:', data.imagePath);
+                            imageEditModal.hide();
+                        })
+                        .catch(error => {
+                            console.error('Error editing image:', error);
+                        });
+                });
+            });
+
+            
+            socket.on('newImage', (file) => {
+                const col = document.createElement('div');
+                col.classList.add('col-md-4');
+                col.innerHTML = `
+                    <div class="card mb-4">
+                        <img src="${file.imagePath}" class="card-img-top" alt="${file.originalName}">
+                        <div class="card-body">
+                            <h5 class="card-title">${file.originalName}</h5>
+                            <a href="${file.imagePath}" class="btn btn-success">View</a>
+                            <button class="btn btn-warning" onclick="editImage('${file.imagePath}')">Edit</button>
+                        </div>
+                    </div>`;
+                gallery.appendChild(col);
+            });
+
+            uploadForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData();
+                formData.append('image', imageInput.files[0]);
+
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Image uploaded successfully:', data.imagePath);
+                        dropdown.hide();
+                    })
+                    .catch(error => {
+                        console.error('Error uploading image:', error);
+                        
+                    });
+
+                uploadForm.reset();
+            });
         });
-
-        uploadForm.reset();
-    });
-});
 
     </script>
 </body>
+
 </html>
